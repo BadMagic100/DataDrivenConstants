@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
@@ -28,7 +28,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DataDrivenConstants.CodeFixes\DataDrivenConstants.CodeFixes.csproj" />
-    <ProjectReference Include="..\DataDrivenConstants\DataDrivenConstants.csproj" />
+    <ProjectReference Include="..\DataDrivenConstants.Analyzers\DataDrivenConstants.Analyzers.csproj" />
   </ItemGroup>
 
   <ItemGroup>

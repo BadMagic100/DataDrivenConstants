@@ -22,7 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DataDrivenConstants.CodeFixes\DataDrivenConstants.CodeFixes.csproj" />
-    <ProjectReference Include="..\DataDrivenConstants\DataDrivenConstants.csproj" />
+    <ProjectReference Include="..\DataDrivenConstants.Analyzers\DataDrivenConstants.Analyzers.csproj" />
   </ItemGroup>
 
 </Project>
