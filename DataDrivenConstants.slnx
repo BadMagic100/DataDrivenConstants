@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="DataDrivenConstants.Analyzers/DataDrivenConstants.Analyzers.csproj" />
+  <Project Path="DataDrivenConstants.CodeFixes/DataDrivenConstants.CodeFixes.csproj" />
+  <Project Path="DataDrivenConstants.Package/DataDrivenConstants.Package.csproj" />
+  <Project Path="DataDrivenConstants.Test/DataDrivenConstants.Test.csproj" />
+  <Project Path="DataDrivenConstants.Vsix/DataDrivenConstants.Vsix.csproj" />
+</Solution>
