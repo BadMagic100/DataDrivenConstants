@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project>
-  <Import Sdk="Microsoft.NET.Sdk" Project="Sdk.props" />
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <RootNamespace>DataDrivenConstants.Vsix</RootNamespace>
@@ -19,7 +17,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="16.8.3038" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="17.14.2120" PrivateAssets="all" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -28,9 +26,9 @@
     <StartArguments>/rootsuffix $(VSSDKTargetPlatformRegRootSuffix)</StartArguments>
   </PropertyGroup>
 
-  <Import Sdk="Microsoft.NET.Sdk" Project="Sdk.targets" />
-
   <Import Project="$(VSToolsPath)\VSSDK\Microsoft.VsSDK.targets" Condition="Exists('$(VSToolsPath)\VSSDK\Microsoft.VsSDK.targets')" />
+  <!-- VSIX projects cannot build in dotnet build -->
+  <Import Project="noop.targets" Condition="'$(MSBuildRuntimeType)' == 'Core'" />
 
   <ItemGroup>
     <ProjectReference Include="..\DataDrivenConstants.CodeFixes\DataDrivenConstants.CodeFixes.csproj" />

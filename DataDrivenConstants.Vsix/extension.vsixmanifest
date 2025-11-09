@@ -1,0 +1,23 @@
+<PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011">
+  <Metadata>
+    <Identity Id="DataDrivenConstants.93a7c7b9-11c6-46f8-9edc-bd9bcac6b1bd" Version="1.0" Language="en-US" Publisher="demps" />
+    <DisplayName>DataDrivenConstants</DisplayName>
+    <Description xml:space="preserve">This is a sample diagnostic extension for the .NET Compiler Platform ("Roslyn").</Description>
+  </Metadata>
+  <Installation>
+    <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[15.0,)" />
+  </Installation>
+  <Dependencies>
+    <Dependency Id="Microsoft.Framework.NDP" DisplayName="Microsoft .NET Framework" Version="[4.5,)" />
+  </Dependencies>
+  <Assets>
+    <Asset Type="Microsoft.VisualStudio.MefComponent" Path="DataDrivenConstants.Analyzers.dll" />
+    <Asset Type="Microsoft.VisualStudio.Analyzer" Path="DataDrivenConstants.Analyzers.dll" />
+    <Asset Type="Microsoft.VisualStudio.MefComponent" Path="DataDrivenConstants.CodeFixes.dll" />
+    <Asset Type="Microsoft.VisualStudio.Analyzer" Path="DataDrivenConstants.CodeFixes.dll" />
+  </Assets>
+  <Prerequisites>
+    <Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor" Version="[17.8,)" DisplayName="Visual Studio core editor" />
+    <Prerequisite Id="Microsoft.VisualStudio.Component.Roslyn.LanguageServices" Version="[17.8,)" DisplayName="Roslyn Language Services" />
+  </Prerequisites>
+</PackageManifest>
