@@ -34,10 +34,17 @@
     <ProjectReference Include="..\DataDrivenConstants.Analyzers\DataDrivenConstants.Analyzers.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" GeneratePathProperty="true" PrivateAssets="all" />
+    <PackageReference Include="DotNet.Glob" Version="3.1.3" GeneratePathProperty="true" PrivateAssets="all" />
+  </ItemGroup>
+
   <Target Name="_AddAnalyzersToOutput">
     <ItemGroup>
       <TfmSpecificPackageFile Include="$(OutputPath)\DataDrivenConstants.Analyzers.dll" PackagePath="analyzers/dotnet/cs" />
       <TfmSpecificPackageFile Include="$(OutputPath)\DataDrivenConstants.CodeFixes.dll" PackagePath="analyzers/dotnet/cs" />
+      <TfmSpecificPackageFile Include="$(PkgNewtonsoft_Json)\lib\netstandard2.0\*.dll" PackagePath="analyzers/dotnet/cs" />
+      <TfmSpecificPackageFile Include="$(PkgDotNet_Glob)\lib\netstandard1.1\*.dll" PackagePath="analyzers/dotnet/cs" />
     </ItemGroup>
   </Target>
 
