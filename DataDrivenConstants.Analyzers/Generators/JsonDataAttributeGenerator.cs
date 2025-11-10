@@ -23,6 +23,11 @@ public class JsonDataAttributeGenerator : IIncrementalGenerator
                 public string ValuePath { get; }
                 public string[] FileGlobs { get; }
 
+                /// <summary>
+                /// Initializes a JsonData attribute
+                /// </summary>
+                /// <param name="valuePath">The JSONPath query to use to extract values.</param>
+                /// <param name="fileGlobs">Globs to match against additional file paths to find the data.</param>
                 public JsonDataAttribute(string valuePath, params string[] fileGlobs)
                 {
                     ValuePath = valuePath;
