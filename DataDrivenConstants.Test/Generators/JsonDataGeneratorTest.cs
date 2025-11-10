@@ -241,4 +241,95 @@ public class JsonDataGeneratorTest
             }
         }.RunAsync(TestContext.Current.CancellationToken);
     }
+
+    [Fact]
+    public async Task GeneratesWithCustomReplacement()
+    {
+        string source = /*lang=c#-test*/ """
+            namespace Test;
+
+            [DataDrivenConstants.Marker.JsonData("$[*]", "**/list.json")]
+            [DataDrivenConstants.Marker.ReplacementRule("-", "__")]
+            [DataDrivenConstants.Marker.ReplacementRule("'", "")]
+            public static partial class MakeMeSomeMagicConstants {}
+            """;
+
+        string gen = /*lang=c#-test*/ """
+            namespace Test
+            {
+                public static partial class MakeMeSomeMagicConstants
+                {
+                    public const string Lever__Queens_Garden_Stag = "Lever-Queen's_Garden_Stag";
+                }
+            }
+
+            """;
+
+        await new GenTest
+        {
+            TestCode = source,
+            TestState =
+            {
+                AdditionalFiles =
+                {
+                    ("Resources/list.json", """
+                    [
+                        "Lever-Queen's_Garden_Stag",
+                    ]
+                    """)
+                },
+                GeneratedSources =
+                {
+                    (typeof(JsonDataGenerator), "MakeMeSomeMagicConstants.g.cs", gen)
+                }
+            }
+        }.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task GeneratesWithCustomRegexReplacement()
+    {
+        string source = /*lang=c#-test*/ """
+            using DataDrivenConstants.Marker;
+
+            namespace Test;
+
+            [JsonData("$[*]", "**/list.json")]
+            [ReplacementRule(@"((.)\2)(.)", "$3", ReplacementKind.Regex)]
+            public static partial class MakeMeSomeMagicConstants {}
+            """;
+
+        string gen = /*lang=c#-test*/ """
+            namespace Test
+            {
+                public static partial class MakeMeSomeMagicConstants
+                {
+                    public const string Clis_01_right4 = "Cliffs_01[right4]";
+                    public const string Lever_Qun_s_Garden_Stag = "Lever-Queen's_Garden_Stag";
+                }
+            }
+
+            """;
+
+        await new GenTest
+        {
+            TestCode = source,
+            TestState =
+            {
+                AdditionalFiles =
+                {
+                    ("Resources/list.json", """
+                    [
+                        "Cliffs_01[right4]",
+                        "Lever-Queen's_Garden_Stag"
+                    ]
+                    """)
+                },
+                GeneratedSources =
+                {
+                    (typeof(JsonDataGenerator), "MakeMeSomeMagicConstants.g.cs", gen)
+                }
+            }
+        }.RunAsync(TestContext.Current.CancellationToken);
+    }
 }

@@ -23,7 +23,8 @@ public class JsonDataGenerator : IIncrementalGenerator
         string TargetClass,
         Location Location,
         string ValuePath,
-        CacheableList<string> FileGlobs);
+        CacheableList<string> FileGlobs,
+        CacheableList<ReplacementRule> ReplacementRules);
     private record JsonGeneratorTarget(
         string TargetNamespace,
         string Accessibility,
@@ -54,6 +55,8 @@ public class JsonDataGenerator : IIncrementalGenerator
     {
         AttributeData attr = ctx.Attributes[0];
 
+        ImmutableArray<ReplacementRule> replacements = ctx.TargetSymbol.GetReplacements();
+
         TextSpan location = ((ClassDeclarationSyntax)ctx.TargetNode).Identifier.Span;
         string accessibility = SyntaxFacts.GetText(ctx.TargetSymbol.DeclaredAccessibility);
         string targetNamespace = ctx.TargetSymbol.ContainingNamespace.ToDisplayString();
@@ -79,7 +82,15 @@ public class JsonDataGenerator : IIncrementalGenerator
             globs = new CacheableList<string>(builder.ToImmutableArray());
         }
 
-        return new JsonDataProperties(targetNamespace, accessibility, target, Location.Create(ctx.TargetNode.SyntaxTree, location), valuePath, globs);
+        return new JsonDataProperties(
+            targetNamespace,
+            accessibility,
+            target,
+            Location.Create(ctx.TargetNode.SyntaxTree, location),
+            valuePath,
+            globs,
+            new CacheableList<ReplacementRule>(replacements)
+        );
     }
 
     private (string, string?) GetNormalizedPathAndContent(AdditionalText text, CancellationToken ct)
@@ -125,7 +136,7 @@ public class JsonDataGenerator : IIncrementalGenerator
                             .Select(t => t.Value<string>()!);
                     }
 
-                    builder.AddRange(values.Select(v => (Renamer.GetSafeName(v), v)));
+                    builder.AddRange(values.Select(v => (Renamer.GetSafeName(v, props.ReplacementRules), v)));
                 }
             }
         }

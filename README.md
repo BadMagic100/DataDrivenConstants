@@ -50,3 +50,19 @@ a `~` operator at the end of a query to get the keys of the selected node. This 
 while `$.*` will give you all *values* of an object, `$.*~` will give the *keys* of the object.
 [This website](https://jsonpath.com/) can be used to test your JSONPath; the `~` operator is supported in the JSONPath Plus`
 parser (note that it also supports other features which are not supported here).
+
+### JSONPath cookbook
+
+- `$.*` - get all values of the root object
+- `$.*~` - get all keys of the root object
+- `$[*]` - get all elements of the root array
+- `$[*].name` - get the value of the `name` property for all elements of the root array
+- `$.*[*]` - in a object where all values are lists, gets all elements of all the lists
+
+## Replacements
+
+In the general case, the generator will perform a mostly minimal set of replacements to make the selected value into a legal
+C# symbol (details [here](https://github.com/BadMagic100/DataDrivenConstants/blob/main/DataDrivenConstants.Analyzers/Util/Renamer.cs)).
+In some cases however, more sophisticated replacement rules may be needed. Custom replacements can be specified with the
+`DataDrivenConstants.Marker.ReplacementRule` attribute. Multiple rules can be applied to a class and they will be evaluated
+in order. Regex replacement is also supported.

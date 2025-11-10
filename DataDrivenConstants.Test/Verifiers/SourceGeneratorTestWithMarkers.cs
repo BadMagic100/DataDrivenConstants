@@ -9,6 +9,7 @@ internal class SourceGeneratorTestWithMarkers<TGen> : CSharpSourceGeneratorTest<
 {
     protected override IEnumerable<Type> GetSourceGenerators() => [
         typeof(JsonDataAttributeGenerator),
+        typeof(ReplacementRuleAttributeGenerator),
         typeof(TGen)
     ];
 
@@ -18,6 +19,11 @@ internal class SourceGeneratorTestWithMarkers<TGen> : CSharpSourceGeneratorTest<
             typeof(JsonDataAttributeGenerator),
             JsonDataAttributeGenerator.AttributeFileName,
             JsonDataAttributeGenerator.AttributeSource
+        ));
+        TestState.GeneratedSources.Add((
+            typeof(ReplacementRuleAttributeGenerator),
+            ReplacementRuleAttributeGenerator.AttributeFileName,
+            ReplacementRuleAttributeGenerator.AttributeSource
         ));
     }
 }
