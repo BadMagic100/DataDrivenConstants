@@ -168,8 +168,8 @@ public class JsonDataGeneratorTest
             {
                 public static partial class MakeMeSomeMagicConstants
                 {
-                    public const string K1 = "K1";
-                    public const string K2 = "K2";
+                    public const string k1 = "k1";
+                    public const string k2 = "k2";
                 }
             }
 
