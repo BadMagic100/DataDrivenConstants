@@ -17,23 +17,34 @@ namespace DataDrivenConstants.Generators;
 [Generator(LanguageNames.CSharp)]
 public class JsonDataGenerator : IIncrementalGenerator
 {
-    private record JsonDataProperties(string TargetNamespace, string Accessiblity, string TargetClass, Location Location, string ValuePath, CacheableList<string> FileGlobs);
-    private record JsonGeneratorTarget(string TargetNamespace, string Accessibility, string TargetClass, Location Location, CacheableList<(string name, string value)> Members);
+    private record JsonDataProperties(
+        string TargetNamespace,
+        string Accessiblity,
+        string TargetClass,
+        Location Location,
+        string ValuePath,
+        CacheableList<string> FileGlobs);
+    private record JsonGeneratorTarget(
+        string TargetNamespace,
+        string Accessibility,
+        string TargetClass,
+        Location Location,
+        CacheableList<(string name, string value)> Members);
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        IncrementalValuesProvider<JsonDataProperties> jsonDatas = context.SyntaxProvider
+        IncrementalValuesProvider<JsonDataProperties> jsonDataMarkers = context.SyntaxProvider
             .ForAttributeWithMetadataName(JsonDataAttributeGenerator.AttributeFullName,
                 predicate: CommonPredicates.IsStaticPartialClassDeclaration,
                 transform: ExtractJsonDataProperties
             );
 
-        IncrementalValuesProvider<(string path, string content)> texts = context.AdditionalTextsProvider
+        IncrementalValuesProvider<(string path, string content)> jsonFiles = context.AdditionalTextsProvider
             .Select(GetNormalizedPathAndContent)
             .Where(x => x.Item2 != null)!;
 
-        IncrementalValuesProvider<JsonGeneratorTarget> generatorTargets = jsonDatas
-            .Combine(texts.Collect())
+        IncrementalValuesProvider<JsonGeneratorTarget> generatorTargets = jsonDataMarkers
+            .Combine(jsonFiles.Collect())
             .Select(GatherMembers);
 
         context.RegisterSourceOutput(generatorTargets, EmitSources);
