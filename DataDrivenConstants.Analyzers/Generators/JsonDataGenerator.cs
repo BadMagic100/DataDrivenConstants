@@ -55,7 +55,7 @@ public class JsonDataGenerator : IIncrementalGenerator
     {
         AttributeData attr = ctx.Attributes[0];
 
-        ImmutableArray<ReplacementRule> replacements = ctx.TargetSymbol.GetReplacements();
+        ImmutableArray<ReplacementRule> replacements = ctx.TargetSymbol.GetReplacements(ctx.SemanticModel);
 
         TextSpan location = ((ClassDeclarationSyntax)ctx.TargetNode).Identifier.Span;
         string accessibility = SyntaxFacts.GetText(ctx.TargetSymbol.DeclaredAccessibility);
@@ -155,7 +155,7 @@ public class JsonDataGenerator : IIncrementalGenerator
     {
         if (target.Members.Count == 0)
         {
-            ctx.ReportDiagnostic(Diagnostic.Create(Diagnostics.NoMembersFound, target.Location));
+            ctx.ReportDiagnostic(Diagnostic.Create(Diagnostics.NoMembersFound, target.Location, target.TargetClass));
             return;
         }
 

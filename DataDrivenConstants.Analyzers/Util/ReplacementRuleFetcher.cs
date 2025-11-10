@@ -12,7 +12,7 @@ internal record ReplacementRule(string OldString, string NewString, bool Regex);
 
 internal static class ReplacementRuleFetcherExtensions
 {
-    private static SymbolDisplayFormat QualifiedMetadataNameOnly = new SymbolDisplayFormat(
+    private static readonly SymbolDisplayFormat QualifiedMetadataNameOnly = new(
         globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Omitted,
         typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces
     );
@@ -20,10 +20,15 @@ internal static class ReplacementRuleFetcherExtensions
     /// <summary>
     /// Gets replacement rules off a class declaration
     /// </summary>
-    public static ImmutableArray<ReplacementRule> GetReplacements(this ISymbol classDeclaration)
+    public static ImmutableArray<ReplacementRule> GetReplacements(this ISymbol classDeclaration, SemanticModel semanticModel)
     {
+        INamedTypeSymbol? attrType = semanticModel.Compilation.GetTypeByMetadataName(ReplacementRuleAttributeGenerator.AttributeFullName);
+        if (attrType == null)
+        {
+            return [];
+        }
         return [.. classDeclaration.GetAttributes()
-            .Where(a => a.AttributeClass?.ToDisplayString(QualifiedMetadataNameOnly) == ReplacementRuleAttributeGenerator.AttributeFullName
+            .Where(a => a.AttributeClass?.Equals(attrType, SymbolEqualityComparer.Default) == true
                         && !a.ConstructorArguments[0].IsNull
                         && !a.ConstructorArguments[1].IsNull)
             .Select(a =>

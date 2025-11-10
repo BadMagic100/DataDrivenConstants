@@ -23,7 +23,9 @@ public class JsonDataGeneratorTest
             {
                 ExpectedDiagnostics =
                 {
-                    new DiagnosticResult(Diagnostics.NoMembersFound).WithLocation(0)
+                    new DiagnosticResult(Diagnostics.NoMembersFound)
+                        .WithLocation(0)
+                        .WithArguments("MakeMeSomeMagicConstants")
                 }
             }
         };
@@ -42,6 +44,46 @@ public class JsonDataGeneratorTest
 
         string gen = /*lang=c#-test*/ """
             namespace Test
+            {
+                public static partial class MakeMeSomeMagicConstants
+                {
+                    public const string T1 = "T1";
+                    public const string T2 = "T2";
+                }
+            }
+
+            """;
+
+        GenTest test = new()
+        {
+            TestCode = source,
+            TestState =
+            {
+                AdditionalFiles =
+                {
+                    ("Resources/list.json", "[ \"T1\", \"T2\" ]")
+                },
+                GeneratedSources =
+                {
+                    (typeof(JsonDataGenerator), "MakeMeSomeMagicConstants.g.cs", gen)
+                }
+            }
+        };
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task SimplePathNestedNamespaceCanGenerate()
+    {
+        string source = /*lang=c#-test*/ """
+            namespace Test.Nested;
+
+            [DataDrivenConstants.Marker.JsonData("$[*]", "**/list.json")]
+            public static partial class MakeMeSomeMagicConstants {}
+            """;
+
+        string gen = /*lang=c#-test*/ """
+            namespace Test.Nested
             {
                 public static partial class MakeMeSomeMagicConstants
                 {

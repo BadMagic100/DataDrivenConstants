@@ -1,5 +1,4 @@
-﻿using DataDrivenConstants.Generators;
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Testing;
 
@@ -8,22 +7,12 @@ internal class SourceGeneratorTestWithMarkers<TGen> : CSharpSourceGeneratorTest<
     where TGen : IIncrementalGenerator, new()
 {
     protected override IEnumerable<Type> GetSourceGenerators() => [
-        typeof(JsonDataAttributeGenerator),
-        typeof(ReplacementRuleAttributeGenerator),
+        .. MarkerAttributeInjector.MarkerAttributeTypes,
         typeof(TGen)
     ];
 
     public SourceGeneratorTestWithMarkers() : base()
     {
-        TestState.GeneratedSources.Add((
-            typeof(JsonDataAttributeGenerator),
-            JsonDataAttributeGenerator.AttributeFileName,
-            JsonDataAttributeGenerator.AttributeSource
-        ));
-        TestState.GeneratedSources.Add((
-            typeof(ReplacementRuleAttributeGenerator),
-            ReplacementRuleAttributeGenerator.AttributeFileName,
-            ReplacementRuleAttributeGenerator.AttributeSource
-        ));
+        MarkerAttributeInjector.ApplySourceGen(TestState);
     }
 }

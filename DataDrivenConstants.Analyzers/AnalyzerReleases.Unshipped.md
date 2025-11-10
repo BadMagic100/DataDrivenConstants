@@ -6,3 +6,4 @@
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
 DATACONST001 | DataDrivenConstants | Warning | Diagnostics
+DATACONST002 | DataDrivenConstants | Error | Diagnostics

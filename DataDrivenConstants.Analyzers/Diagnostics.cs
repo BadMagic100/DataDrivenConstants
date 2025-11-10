@@ -11,4 +11,14 @@ public static class Diagnostics
         DiagnosticSeverity.Warning,
         isEnabledByDefault: true
     );
+
+
+    public static readonly DiagnosticDescriptor AttributeOnNonStaticPartialClass = new(
+        id: "DATACONST002",
+        title: "DataDrivenConstants attribute applied to non-static or non-partial class",
+        messageFormat: "DataDrivenConstants marker attributes may only be applied to static partial classes, but target class {0} is not",
+        category: "DataDrivenConstants",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
 }
