@@ -66,7 +66,7 @@ public class JsonDataGenerator : IIncrementalGenerator
 
         if (attr.ConstructorArguments[1].IsNull)
         {
-            globs = new CacheableList<string>([]);
+            globs = new CacheableList<string>(ImmutableArray<string>.Empty);
         }
         else
         {

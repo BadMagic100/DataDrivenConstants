@@ -11,7 +11,7 @@ namespace DataDrivenConstants.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class NonStaticPartialAnalyzer : DiagnosticAnalyzer
 {
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Diagnostics.AttributeOnNonStaticPartialClass];
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Diagnostics.AttributeOnNonStaticPartialClass);
 
     public override void Initialize(AnalysisContext context)
     {

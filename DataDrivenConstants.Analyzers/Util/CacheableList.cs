@@ -7,7 +7,7 @@ namespace DataDrivenConstants.Util;
 
 internal class CacheableList<T>(ImmutableArray<T> inner) : IReadOnlyList<T>, IEquatable<CacheableList<T>> where T : IEquatable<T>
 {
-    private readonly ImmutableArray<T> inner = [.. inner];
+    private readonly ImmutableArray<T> inner = inner;
 
     public T this[int index] => ((IReadOnlyList<T>)inner)[index];
 

@@ -17,7 +17,7 @@ public class NonStaticPartialFixes : CodeFixProvider
 {
     public const string FixKeyMakeStaticPartial = "MakeStaticPartial";
 
-    public override ImmutableArray<string> FixableDiagnosticIds => [Diagnostics.AttributeOnNonStaticPartialClass.Id];
+    public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create(Diagnostics.AttributeOnNonStaticPartialClass.Id);
 
     public override FixAllProvider? GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
