@@ -25,6 +25,14 @@ public class JsonDataGenerator : IIncrementalGenerator
         string ValuePath,
         CacheableList<string> FileGlobs,
         CacheableList<ReplacementRule> ReplacementRules);
+    private record DataInjectProperties(
+        bool IsStringParameter,
+        string ContainingClass,
+        string MethodName,
+        string ReturnType,
+        Location Location,
+        int InjectedParameterIndex,
+        CacheableList<(string type, string name)> CopiedParameters);
     private record JsonGeneratorTarget(
         string TargetNamespace,
         string Accessibility,
@@ -40,6 +48,12 @@ public class JsonDataGenerator : IIncrementalGenerator
                 transform: ExtractJsonDataProperties
             );
 
+        IncrementalValuesProvider<DataInjectProperties> dataInjectMarkers = context.SyntaxProvider
+            .ForAttributeWithMetadataName(DataInjectAttributeGenerator.AttributeFullName,
+                predicate: (x, ct) => true,
+                transform: ExtractDataInjectProperties
+            );
+
         IncrementalValuesProvider<(string path, string content)> jsonFiles = context.AdditionalTextsProvider
             .Select(GetNormalizedPathAndContent)
             .Where(x => x.Item2 != null)!;
@@ -48,7 +62,10 @@ public class JsonDataGenerator : IIncrementalGenerator
             .Combine(jsonFiles.Collect())
             .Select(GatherMembers);
 
-        context.RegisterSourceOutput(generatorTargets, EmitSources);
+        IncrementalValuesProvider<(JsonGeneratorTarget Left, ImmutableArray<DataInjectProperties> Right)>
+            generatorTargetsWithInjections = generatorTargets.Combine(dataInjectMarkers.Collect());
+
+        context.RegisterSourceOutput(generatorTargetsWithInjections, (ctx, val) => EmitSources(ctx, val.Left, val.Right));
     }
 
     private JsonDataProperties ExtractJsonDataProperties(GeneratorAttributeSyntaxContext ctx, CancellationToken ct)
@@ -79,7 +96,7 @@ public class JsonDataGenerator : IIncrementalGenerator
                 }
                 builder.Add((string)val.Value!);
             }
-            globs = new CacheableList<string>(builder.ToImmutableArray());
+            globs = new CacheableList<string>(builder.ToImmutable());
         }
 
         return new JsonDataProperties(
@@ -90,6 +107,39 @@ public class JsonDataGenerator : IIncrementalGenerator
             valuePath,
             globs,
             new CacheableList<ReplacementRule>(replacements)
+        );
+    }
+
+    private DataInjectProperties ExtractDataInjectProperties(GeneratorAttributeSyntaxContext ctx, CancellationToken ct)
+    {
+        IParameterSymbol param = (IParameterSymbol)ctx.TargetSymbol;
+        IMethodSymbol method = (IMethodSymbol)param.ContainingSymbol;
+        INamedTypeSymbol containingType = (INamedTypeSymbol)method.ContainingSymbol;
+
+        TextSpan location = ((ParameterSyntax)ctx.TargetNode).Identifier.Span;
+        bool isString = param.Type.SpecialType == SpecialType.System_String;
+        int index = 0;
+        ImmutableArray<(string, string)>.Builder builder = ImmutableArray.CreateBuilder<(string, string)>(method.Parameters.Length - 1);
+        for (int i = 0; i < method.Parameters.Length; i++)
+        {
+            IParameterSymbol current = method.Parameters[i];
+            if (current.Equals(param, SymbolEqualityComparer.Default))
+            {
+                index = i;
+            }
+            else
+            {
+                builder.Add((current.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat), current.Name));
+            }
+        }
+        return new DataInjectProperties(
+            isString,
+            containingType.Name,
+            method.Name,
+            method.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+            Location.Create(ctx.TargetNode.SyntaxTree, location),
+            index,
+            new CacheableList<(string declaration, string name)>(builder.ToImmutable())
         );
     }
 
@@ -151,12 +201,28 @@ public class JsonDataGenerator : IIncrementalGenerator
         );
     }
 
-    private void EmitSources(SourceProductionContext ctx, JsonGeneratorTarget target)
+    private void EmitSources(SourceProductionContext ctx, JsonGeneratorTarget target, ImmutableArray<DataInjectProperties> injections)
     {
         if (target.Members.Count == 0)
         {
             ctx.ReportDiagnostic(Diagnostic.Create(Diagnostics.NoMembersFound, target.Location, target.TargetClass));
             return;
+        }
+
+        List<DataInjectProperties> relevantInjections = [.. injections.Where(x => x.ContainingClass == target.TargetClass)];
+        bool validInjections = true;
+        foreach (DataInjectProperties injection in relevantInjections)
+        {
+            if (relevantInjections.Count > 1)
+            {
+                ctx.ReportDiagnostic(Diagnostic.Create(Diagnostics.MultipleDataInjectParameters, injection.Location, target.TargetClass));
+                validInjections = false;
+            }
+            if (!injection.IsStringParameter)
+            {
+                ctx.ReportDiagnostic(Diagnostic.Create(Diagnostics.DataInjectOnNonStringParameter, injection.Location));
+                validInjections = false;
+            }
         }
 
         StringBuilder source = new($$"""
@@ -167,12 +233,58 @@ public class JsonDataGenerator : IIncrementalGenerator
 
             """);
 
-        foreach ((string name, string value) in target.Members)
+        if (validInjections && relevantInjections.Count == 1)
         {
-            SyntaxToken tok = SyntaxFactory.Literal(value);
-            source.AppendLine($$"""
-                    public const string {{name}} = {{tok}};
-            """);
+            DataInjectProperties injection = relevantInjections[0];
+            StringBuilder parameterDeclarationsBuilder = new();
+            StringBuilder parameterCallsFormatBuilder = new();
+
+            for (int i = 0; i < injection.CopiedParameters.Count; i++)
+            {
+                (string paramType, string paramName) = injection.CopiedParameters[i];
+                if (i != 0)
+                {
+                    parameterDeclarationsBuilder.Append(", ");
+                    parameterCallsFormatBuilder.Append(", ");
+                }
+                if (i == injection.InjectedParameterIndex)
+                {
+                    parameterCallsFormatBuilder.Append("{0}, ");
+                }
+                parameterDeclarationsBuilder.Append($"{paramType} {paramName}");
+                parameterCallsFormatBuilder.Append(paramName);
+            }
+
+            if (injection.InjectedParameterIndex == injection.CopiedParameters.Count)
+            {
+                if (injection.InjectedParameterIndex > 0)
+                {
+                    parameterCallsFormatBuilder.Append(", ");
+                }
+                parameterCallsFormatBuilder.Append("{0}");
+            }
+
+            string parameterDeclarations = parameterDeclarationsBuilder.ToString();
+            string parameterCallsFormat = parameterCallsFormatBuilder.ToString();
+
+            foreach ((string name, string value) in target.Members)
+            {
+                SyntaxToken tok = SyntaxFactory.Literal(value);
+                string callArgs = string.Format(parameterCallsFormat, tok);
+                source.AppendLine($$"""
+                        public static {{injection.ReturnType}} Get{{name}}({{parameterDeclarations}}) => {{injection.MethodName}}({{callArgs}});
+                """);
+            }
+        }
+        else
+        {
+            foreach ((string name, string value) in target.Members)
+            {
+                SyntaxToken tok = SyntaxFactory.Literal(value);
+                source.AppendLine($$"""
+                        public const string {{name}} = {{tok}};
+                """);
+            }
         }
 
         source.AppendLine("""

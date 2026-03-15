@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.Testing;
 using System.Collections.Immutable;
 
 namespace DataDrivenConstants.Test.Verifiers;
+
 internal static class MarkerAttributeInjector
 {
     public static readonly ImmutableArray<(Type generatorType, string fileName, string source)> MarkerGeneratedSources = [
@@ -10,6 +11,11 @@ internal static class MarkerAttributeInjector
             typeof(JsonDataAttributeGenerator),
             JsonDataAttributeGenerator.AttributeFileName,
             JsonDataAttributeGenerator.AttributeSource
+        ),
+        (
+            typeof(DataInjectAttributeGenerator),
+            DataInjectAttributeGenerator.AttributeFileName,
+            DataInjectAttributeGenerator.AttributeSource
         ),
         (
             typeof(ReplacementRuleAttributeGenerator),

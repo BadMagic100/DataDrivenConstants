@@ -374,4 +374,370 @@ public class JsonDataGeneratorTest
             }
         }.RunAsync(TestContext.Current.CancellationToken);
     }
+
+    [Fact]
+    public async Task GeneratedSymbolNamesAreValidWithInjection()
+    {
+        string source = /*lang=c#-test*/ """
+            namespace Test;
+
+            [DataDrivenConstants.Marker.JsonData("$[*]", "**/list.json")]
+            public static partial class MakeMeSomeMagicConstants 
+            {
+                private static string MakePlural([DataDrivenConstants.Marker.DataInject] string value)
+                {
+                    return value + "s";
+                }
+            }
+            """;
+
+        string gen = /*lang=c#-test*/ """
+            namespace Test
+            {
+                public static partial class MakeMeSomeMagicConstants
+                {
+                    public static string Get_2Number() => MakePlural("2Number");
+                    public static string GetCliffs_01_right4() => MakePlural("Cliffs_01[right4]");
+                    public static string GetLever_Queen_s_Garden_Stag() => MakePlural("Lever-Queen's_Garden_Stag");
+                    public static string GetNailmasters_Oro_Mato() => MakePlural("Nailmasters_Oro_&_Mato");
+                    public static string GetThing_With_Backslashes() => MakePlural("Thing_\\With\\_Backslashes");
+                }
+            }
+
+            """;
+
+        await new GenTest
+        {
+            TestCode = source,
+            TestState =
+            {
+                AdditionalFiles =
+                {
+                    ("Resources/list.json", """
+                    [ 
+                        "Lever-Queen's_Garden_Stag", 
+                        "Nailmasters_Oro_&_Mato", 
+                        "Cliffs_01[right4]",
+                        "Thing_\\With\\_Backslashes",
+                        "2Number"
+                    ]
+                    """)
+                },
+                GeneratedSources =
+                {
+                    (typeof(JsonDataGenerator), "MakeMeSomeMagicConstants.g.cs", gen)
+                }
+            }
+        }.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task InjectionWithLastArgGeneratesCorrectly()
+    {
+        string source = /*lang=c#-test*/ """
+            namespace Test;
+
+            public class FormatString(string Format, params string[] Args) { } 
+
+            [DataDrivenConstants.Marker.JsonData("$[*]", "**/list.json")]
+            public static partial class MakeMeSomeMagicConstants 
+            {
+                private static FormatString MakeFormat(string format, [DataDrivenConstants.Marker.DataInject] string val)
+                {
+                    return new FormatString(format, val);
+                }
+            }
+            """;
+
+        string gen = /*lang=c#-test*/ """
+            namespace Test
+            {
+                public static partial class MakeMeSomeMagicConstants
+                {
+                    public static global::Test.FormatString GetT1(string format) => MakeFormat(format, "T1");
+                    public static global::Test.FormatString GetT2(string format) => MakeFormat(format, "T2");
+                }
+            }
+
+            """;
+
+        GenTest test = new()
+        {
+            TestCode = source,
+            TestState =
+            {
+                AdditionalFiles =
+                {
+                    ("Resources/list.json", "[ \"T1\", \"T2\" ]")
+                },
+                GeneratedSources =
+                {
+                    (typeof(JsonDataGenerator), "MakeMeSomeMagicConstants.g.cs", gen)
+                }
+            }
+        };
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task InjectionWithFirstArgGeneratesCorrectly()
+    {
+        string source = /*lang=c#-test*/ """
+            namespace Test;
+
+            public class FormatString(string Format, params string[] Args) { } 
+
+            [DataDrivenConstants.Marker.JsonData("$[*]", "**/list.json")]
+            public static partial class MakeMeSomeMagicConstants 
+            {
+                private static FormatString MakeFormat([DataDrivenConstants.Marker.DataInject] string val, string format)
+                {
+                    return new FormatString(format, val);
+                }
+            }
+            """;
+
+        string gen = /*lang=c#-test*/ """
+            namespace Test
+            {
+                public static partial class MakeMeSomeMagicConstants
+                {
+                    public static global::Test.FormatString GetT1(string format) => MakeFormat("T1", format);
+                    public static global::Test.FormatString GetT2(string format) => MakeFormat("T2", format);
+                }
+            }
+
+            """;
+
+        GenTest test = new()
+        {
+            TestCode = source,
+            TestState =
+            {
+                AdditionalFiles =
+                {
+                    ("Resources/list.json", "[ \"T1\", \"T2\" ]")
+                },
+                GeneratedSources =
+                {
+                    (typeof(JsonDataGenerator), "MakeMeSomeMagicConstants.g.cs", gen)
+                }
+            }
+        };
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task InjectionWithMiddleArgGeneratesCorrectly()
+    {
+        string source = /*lang=c#-test*/ """
+            namespace Test;
+
+            public class FormatString(string Format, params string[] Args) { } 
+
+            [DataDrivenConstants.Marker.JsonData("$[*]", "**/list.json")]
+            public static partial class MakeMeSomeMagicConstants 
+            {
+                private static FormatString MakeFormat(string format, [DataDrivenConstants.Marker.DataInject] string val, string val2)
+                {
+                    return new FormatString(format, val, val2);
+                }
+            }
+            """;
+
+        string gen = /*lang=c#-test*/ """
+            namespace Test
+            {
+                public static partial class MakeMeSomeMagicConstants
+                {
+                    public static global::Test.FormatString GetT1(string format, string val2) => MakeFormat(format, "T1", val2);
+                    public static global::Test.FormatString GetT2(string format, string val2) => MakeFormat(format, "T2", val2);
+                }
+            }
+
+            """;
+
+        GenTest test = new()
+        {
+            TestCode = source,
+            TestState =
+            {
+                AdditionalFiles =
+                {
+                    ("Resources/list.json", "[ \"T1\", \"T2\" ]")
+                },
+                GeneratedSources =
+                {
+                    (typeof(JsonDataGenerator), "MakeMeSomeMagicConstants.g.cs", gen)
+                }
+            }
+        };
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task InjectionOnNonStringArgEmitsDiagnostic()
+    {
+        string source = /*lang=c#-test*/ """
+            namespace Test;
+
+            [DataDrivenConstants.Marker.JsonData("$[*]", "**/list.json")]
+            public static partial class MakeMeSomeMagicConstants 
+            {
+                private static string MakePlural([DataDrivenConstants.Marker.DataInject] int {|#0:val|})
+                {
+                    return val + "s";
+                }
+            }
+            """;
+
+        string gen = /*lang=c#-test*/ """
+            namespace Test
+            {
+                public static partial class MakeMeSomeMagicConstants
+                {
+                    public const string T1 = "T1";
+                    public const string T2 = "T2";
+                }
+            }
+
+            """;
+
+        GenTest test = new()
+        {
+            TestCode = source,
+            TestState =
+            {
+                AdditionalFiles =
+                {
+                    ("Resources/list.json", "[ \"T1\", \"T2\" ]")
+                },
+                GeneratedSources =
+                {
+                    (typeof(JsonDataGenerator), "MakeMeSomeMagicConstants.g.cs", gen)
+                },
+                ExpectedDiagnostics =
+                {
+                    new DiagnosticResult(Diagnostics.DataInjectOnNonStringParameter)
+                        .WithLocation(0)
+                }
+            }
+        };
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task InjectionOnMultipleArgsOfSameMethodEmitsDiagnostics()
+    {
+        string source = /*lang=c#-test*/ """
+            namespace Test;
+
+            [DataDrivenConstants.Marker.JsonData("$[*]", "**/list.json")]
+            public static partial class MakeMeSomeMagicConstants 
+            {
+                private static string MakePlural([DataDrivenConstants.Marker.DataInject] string {|#0:val|}, [DataDrivenConstants.Marker.DataInject] string {|#1:val2|})
+                {
+                    return val + val2 + "s";
+                }
+            }
+            """;
+
+        string gen = /*lang=c#-test*/ """
+            namespace Test
+            {
+                public static partial class MakeMeSomeMagicConstants
+                {
+                    public const string T1 = "T1";
+                    public const string T2 = "T2";
+                }
+            }
+
+            """;
+
+        GenTest test = new()
+        {
+            TestCode = source,
+            TestState =
+            {
+                AdditionalFiles =
+                {
+                    ("Resources/list.json", "[ \"T1\", \"T2\" ]")
+                },
+                GeneratedSources =
+                {
+                    (typeof(JsonDataGenerator), "MakeMeSomeMagicConstants.g.cs", gen)
+                },
+                ExpectedDiagnostics =
+                {
+                    new DiagnosticResult(Diagnostics.MultipleDataInjectParameters)
+                        .WithLocation(0)
+                        .WithArguments("MakeMeSomeMagicConstants"),
+                    new DiagnosticResult(Diagnostics.MultipleDataInjectParameters)
+                        .WithLocation(1)
+                        .WithArguments("MakeMeSomeMagicConstants")
+                }
+            }
+        };
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task InjectionOnMultipleMethodsEmitsDiagnostics()
+    {
+        string source = /*lang=c#-test*/ """
+            namespace Test;
+
+            [DataDrivenConstants.Marker.JsonData("$[*]", "**/list.json")]
+            public static partial class MakeMeSomeMagicConstants 
+            {
+                private static string MakePlural([DataDrivenConstants.Marker.DataInject] string {|#0:val|})
+                {
+                    return val + "s";
+                }
+            
+                private static string MakePlural2([DataDrivenConstants.Marker.DataInject] string {|#1:val|})
+                {
+                    return val + "s";
+                }
+            }
+            """;
+
+        string gen = /*lang=c#-test*/ """
+            namespace Test
+            {
+                public static partial class MakeMeSomeMagicConstants
+                {
+                    public const string T1 = "T1";
+                    public const string T2 = "T2";
+                }
+            }
+
+            """;
+
+        GenTest test = new()
+        {
+            TestCode = source,
+            TestState =
+            {
+                AdditionalFiles =
+                {
+                    ("Resources/list.json", "[ \"T1\", \"T2\" ]")
+                },
+                GeneratedSources =
+                {
+                    (typeof(JsonDataGenerator), "MakeMeSomeMagicConstants.g.cs", gen)
+                },
+                ExpectedDiagnostics =
+                {
+                    new DiagnosticResult(Diagnostics.MultipleDataInjectParameters)
+                        .WithLocation(0)
+                        .WithArguments("MakeMeSomeMagicConstants"),
+                    new DiagnosticResult(Diagnostics.MultipleDataInjectParameters)
+                        .WithLocation(1)
+                        .WithArguments("MakeMeSomeMagicConstants")
+                }
+            }
+        };
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
 }
