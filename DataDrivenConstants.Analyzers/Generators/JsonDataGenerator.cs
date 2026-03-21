@@ -17,13 +17,13 @@ namespace DataDrivenConstants.Generators;
 [Generator(LanguageNames.CSharp)]
 public class JsonDataGenerator : IIncrementalGenerator
 {
+    private record JsonDataSpec(string ValuePath, CacheableList<string> FileGlobs);
     private record JsonDataProperties(
         string TargetNamespace,
         string Accessiblity,
         string TargetClass,
         Location Location,
-        string ValuePath,
-        CacheableList<string> FileGlobs,
+        CacheableList<JsonDataSpec> DataSpecs,
         CacheableList<ReplacementRule> ReplacementRules,
         CacheableList<DataInjectProperties> Injections);
     private record JsonGeneratorTarget(
@@ -55,8 +55,6 @@ public class JsonDataGenerator : IIncrementalGenerator
 
     private JsonDataProperties ExtractJsonDataProperties(GeneratorAttributeSyntaxContext ctx, CancellationToken ct)
     {
-        AttributeData attr = ctx.Attributes[0];
-
         CacheableList<ReplacementRule> replacements = ctx.TargetSymbol.GetReplacements(ctx.SemanticModel);
         CacheableList<DataInjectProperties> injections = ctx.TargetSymbol.GetInjections(ctx.SemanticModel);
 
@@ -64,25 +62,32 @@ public class JsonDataGenerator : IIncrementalGenerator
         string accessibility = SyntaxFacts.GetText(ctx.TargetSymbol.DeclaredAccessibility);
         string targetNamespace = ctx.TargetSymbol.ContainingNamespace.ToDisplayString();
         string target = ctx.TargetSymbol.Name;
-        string valuePath = (string?)attr.ConstructorArguments[0].Value ?? "";
-        CacheableList<string> globs;
 
-        if (attr.ConstructorArguments[1].IsNull)
+        ImmutableArray<JsonDataSpec>.Builder specsBuilder = ImmutableArray.CreateBuilder<JsonDataSpec>();
+
+        foreach (AttributeData attr in ctx.Attributes)
         {
-            globs = new CacheableList<string>(ImmutableArray<string>.Empty);
-        }
-        else
-        {
-            ImmutableArray<string>.Builder builder = ImmutableArray.CreateBuilder<string>(attr.ConstructorArguments[1].Values.Length);
-            foreach (TypedConstant val in attr.ConstructorArguments[1].Values)
+            string valuePath = (string?)attr.ConstructorArguments[0].Value ?? "";
+            CacheableList<string> globs;
+
+            if (attr.ConstructorArguments[1].IsNull)
             {
-                if (val.IsNull)
-                {
-                    continue;
-                }
-                builder.Add((string)val.Value!);
+                globs = new CacheableList<string>(ImmutableArray<string>.Empty);
             }
-            globs = new CacheableList<string>(builder.ToImmutable());
+            else
+            {
+                ImmutableArray<string>.Builder globsBuilder = ImmutableArray.CreateBuilder<string>(attr.ConstructorArguments[1].Values.Length);
+                foreach (TypedConstant val in attr.ConstructorArguments[1].Values)
+                {
+                    if (val.IsNull)
+                    {
+                        continue;
+                    }
+                    globsBuilder.Add((string)val.Value!);
+                }
+                globs = CacheableList.Of(globsBuilder.ToImmutable());
+            }
+            specsBuilder.Add(new JsonDataSpec(valuePath, globs));
         }
 
         return new JsonDataProperties(
@@ -90,8 +95,7 @@ public class JsonDataGenerator : IIncrementalGenerator
             accessibility,
             target,
             Location.Create(ctx.TargetNode.SyntaxTree, location),
-            valuePath,
-            globs,
+            CacheableList.Of(specsBuilder.ToImmutable()),
             replacements,
             injections
         );
@@ -105,42 +109,42 @@ public class JsonDataGenerator : IIncrementalGenerator
     private JsonGeneratorTarget GatherMembers((JsonDataProperties, ImmutableArray<(string, string)>) pair, CancellationToken ct)
     {
         (JsonDataProperties props, ImmutableArray<(string, string)> texts) = pair;
-        List<Glob> globs = [.. props.FileGlobs.Select(Glob.Parse)];
-
         ImmutableArray<(string, string)>.Builder builder = ImmutableArray.CreateBuilder<(string, string)>();
-        foreach ((string path, string content) in texts)
+
+        foreach (JsonDataSpec spec in props.DataSpecs)
         {
-            foreach (Glob glob in globs)
+            List<Glob> globs = [.. spec.FileGlobs.Select(Glob.Parse)];
+            foreach ((string path, string content) in texts)
             {
-                if (ct.IsCancellationRequested)
+                foreach (Glob glob in globs)
                 {
-                    break;
-                }
-                if (glob.IsMatch(path))
-                {
-                    JContainer? container = JsonConvert.DeserializeObject<JContainer>(content);
-                    if (container == null)
+                    ct.ThrowIfCancellationRequested();
+                    if (glob.IsMatch(path))
                     {
-                        continue;
-                    }
+                        JContainer? container = JsonConvert.DeserializeObject<JContainer>(content);
+                        if (container == null)
+                        {
+                            continue;
+                        }
 
-                    IEnumerable<string> values;
-                    // support ~ (keys) operator from JSONPath Plus at end of path.
-                    if (props.ValuePath[^1] == '~')
-                    {
-                        values = container.SelectTokens(props.ValuePath[0..^1])
-                            .Select(t => t.Parent)
-                            .Where(t => t?.Type == JTokenType.Property)
-                            .Select(t => (t as JProperty)!.Name);
-                    }
-                    else
-                    {
-                        values = container.SelectTokens(props.ValuePath)
-                            .Where(t => t.Type == JTokenType.String)
-                            .Select(t => t.Value<string>()!);
-                    }
+                        IEnumerable<string> values;
+                        // support ~ (keys) operator from JSONPath Plus at end of path.
+                        if (spec.ValuePath[^1] == '~')
+                        {
+                            values = container.SelectTokens(spec.ValuePath[0..^1])
+                                .Select(t => t.Parent)
+                                .Where(t => t?.Type == JTokenType.Property)
+                                .Select(t => (t as JProperty)!.Name);
+                        }
+                        else
+                        {
+                            values = container.SelectTokens(spec.ValuePath)
+                                .Where(t => t.Type == JTokenType.String)
+                                .Select(t => t.Value<string>()!);
+                        }
 
-                    builder.AddRange(values.Select(v => (Renamer.GetSafeName(v, props.ReplacementRules), v)));
+                        builder.AddRange(values.Select(v => (Renamer.GetSafeName(v, props.ReplacementRules), v)));
+                    }
                 }
             }
         }

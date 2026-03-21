@@ -17,7 +17,7 @@ public class JsonDataAttributeGenerator : IIncrementalGenerator
         
         namespace DataDrivenConstants.Marker
         {
-            [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
+            [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = true)]
             internal sealed class JsonDataAttribute : Attribute
             {
                 public string ValuePath { get; }

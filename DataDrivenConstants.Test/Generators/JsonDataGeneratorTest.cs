@@ -196,6 +196,52 @@ public class JsonDataGeneratorTest
     }
 
     [Fact]
+    public async Task MultipleAttributesCanGenerate()
+    {
+        string source = /*lang=c#-test*/ """
+            namespace Test;
+
+            [DataDrivenConstants.Marker.JsonData("$[*]", "**/list.json", "**/otherlist.json")]
+            [DataDrivenConstants.Marker.JsonData("$.key", "**/dict.json")]
+            public static partial class MakeMeSomeMagicConstants {}
+            """;
+
+        string gen = /*lang=c#-test*/ """
+            namespace Test
+            {
+                public static partial class MakeMeSomeMagicConstants
+                {
+                    public const string T1 = "T1";
+                    public const string T11 = "T11";
+                    public const string T2 = "T2";
+                    public const string T3 = "T3";
+                    public const string T4 = "T4";
+                }
+            }
+
+            """;
+
+        await new GenTest
+        {
+            TestCode = source,
+            TestState =
+            {
+                AdditionalFiles =
+                {
+                    ("Resources/list.json", "[ \"T1\", \"T2\" ]"),
+                    ("Resources/nested/list.json", "[ \"T3\"] "),
+                    ("Resources/nested/otherlist.json", "[ \"T4\"] "),
+                    ("Resources/nested/dict.json", "{ \"key\": \"T11\" }")
+                },
+                GeneratedSources =
+                {
+                    (typeof(JsonDataGenerator), "MakeMeSomeMagicConstants.g.cs", gen)
+                }
+            }
+        }.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
     public async Task KeyPathCanGenerate()
     {
         string source = /*lang=c#-test*/ """
