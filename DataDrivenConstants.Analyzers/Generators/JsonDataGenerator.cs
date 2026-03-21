@@ -1,5 +1,4 @@
 ﻿using DataDrivenConstants.Util;
-using DotNet.Globbing;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -42,12 +41,8 @@ public class JsonDataGenerator : IIncrementalGenerator
                 transform: ExtractJsonDataProperties
             );
 
-        IncrementalValuesProvider<(string path, string content)> jsonFiles = context.AdditionalTextsProvider
-            .Select(GetNormalizedPathAndContent)
-            .Where(x => x.Item2 != null)!;
-
         IncrementalValuesProvider<JsonGeneratorTarget> generatorTargets = jsonDataMarkers
-            .Combine(jsonFiles.Collect())
+            .Combine(context.AdditionalTextsProvider.Collect())
             .Select(GatherMembers);
 
         context.RegisterSourceOutput(generatorTargets, EmitSources);
@@ -101,27 +96,21 @@ public class JsonDataGenerator : IIncrementalGenerator
         );
     }
 
-    private (string, string?) GetNormalizedPathAndContent(AdditionalText text, CancellationToken ct)
+    private JsonGeneratorTarget GatherMembers((JsonDataProperties, ImmutableArray<AdditionalText>) pair, CancellationToken ct)
     {
-        return (text.Path.Replace('\\', '/'), text.GetText(ct)?.ToString());
-    }
-
-    private JsonGeneratorTarget GatherMembers((JsonDataProperties, ImmutableArray<(string, string)>) pair, CancellationToken ct)
-    {
-        (JsonDataProperties props, ImmutableArray<(string, string)> texts) = pair;
+        (JsonDataProperties props, ImmutableArray<AdditionalText> texts) = pair;
         ImmutableArray<(string, string)>.Builder builder = ImmutableArray.CreateBuilder<(string, string)>();
 
         foreach (JsonDataSpec spec in props.DataSpecs)
         {
-            List<Glob> globs = [.. spec.FileGlobs.Select(Glob.Parse)];
-            foreach ((string path, string content) in texts)
+            foreach (AdditionalText text in texts)
             {
-                foreach (Glob glob in globs)
+                foreach (string glob in spec.FileGlobs)
                 {
                     ct.ThrowIfCancellationRequested();
-                    if (glob.IsMatch(path))
+                    if (text.GlobMatches(glob) && text.GetText(ct) is SourceText content)
                     {
-                        JContainer? container = JsonConvert.DeserializeObject<JContainer>(content);
+                        JContainer? container = JsonConvert.DeserializeObject<JContainer>(content.ToString());
                         if (container == null)
                         {
                             continue;
