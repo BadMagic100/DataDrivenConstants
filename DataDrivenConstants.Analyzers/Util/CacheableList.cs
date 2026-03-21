@@ -5,6 +5,19 @@ using System.Collections.Immutable;
 
 namespace DataDrivenConstants.Util;
 
+internal static class CacheableList
+{
+    public static CacheableList<T> Of<T>() where T : IEquatable<T>
+    {
+        return new CacheableList<T>(ImmutableArray<T>.Empty);
+    }
+
+    public static CacheableList<T> Of<T>(ImmutableArray<T> inner) where T : IEquatable<T>
+    {
+        return new CacheableList<T>(inner);
+    }
+}
+
 internal class CacheableList<T>(ImmutableArray<T> inner) : IReadOnlyList<T>, IEquatable<CacheableList<T>> where T : IEquatable<T>
 {
     private readonly ImmutableArray<T> inner = inner;

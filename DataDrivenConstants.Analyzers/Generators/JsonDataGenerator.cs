@@ -24,20 +24,14 @@ public class JsonDataGenerator : IIncrementalGenerator
         Location Location,
         string ValuePath,
         CacheableList<string> FileGlobs,
-        CacheableList<ReplacementRule> ReplacementRules);
-    private record DataInjectProperties(
-        bool IsStringParameter,
-        string ContainingClass,
-        string MethodName,
-        string ReturnType,
-        Location Location,
-        int InjectedParameterIndex,
-        CacheableList<(string type, string name)> CopiedParameters);
+        CacheableList<ReplacementRule> ReplacementRules,
+        CacheableList<DataInjectProperties> Injections);
     private record JsonGeneratorTarget(
         string TargetNamespace,
         string Accessibility,
         string TargetClass,
         Location Location,
+        CacheableList<DataInjectProperties> Injections,
         CacheableList<(string name, string value)> Members);
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
@@ -48,12 +42,6 @@ public class JsonDataGenerator : IIncrementalGenerator
                 transform: ExtractJsonDataProperties
             );
 
-        IncrementalValuesProvider<DataInjectProperties> dataInjectMarkers = context.SyntaxProvider
-            .ForAttributeWithMetadataName(DataInjectAttributeGenerator.AttributeFullName,
-                predicate: (x, ct) => true,
-                transform: ExtractDataInjectProperties
-            );
-
         IncrementalValuesProvider<(string path, string content)> jsonFiles = context.AdditionalTextsProvider
             .Select(GetNormalizedPathAndContent)
             .Where(x => x.Item2 != null)!;
@@ -62,17 +50,15 @@ public class JsonDataGenerator : IIncrementalGenerator
             .Combine(jsonFiles.Collect())
             .Select(GatherMembers);
 
-        IncrementalValuesProvider<(JsonGeneratorTarget Left, ImmutableArray<DataInjectProperties> Right)>
-            generatorTargetsWithInjections = generatorTargets.Combine(dataInjectMarkers.Collect());
-
-        context.RegisterSourceOutput(generatorTargetsWithInjections, (ctx, val) => EmitSources(ctx, val.Left, val.Right));
+        context.RegisterSourceOutput(generatorTargets, EmitSources);
     }
 
     private JsonDataProperties ExtractJsonDataProperties(GeneratorAttributeSyntaxContext ctx, CancellationToken ct)
     {
         AttributeData attr = ctx.Attributes[0];
 
-        ImmutableArray<ReplacementRule> replacements = ctx.TargetSymbol.GetReplacements(ctx.SemanticModel);
+        CacheableList<ReplacementRule> replacements = ctx.TargetSymbol.GetReplacements(ctx.SemanticModel);
+        CacheableList<DataInjectProperties> injections = ctx.TargetSymbol.GetInjections(ctx.SemanticModel);
 
         TextSpan location = ((ClassDeclarationSyntax)ctx.TargetNode).Identifier.Span;
         string accessibility = SyntaxFacts.GetText(ctx.TargetSymbol.DeclaredAccessibility);
@@ -106,40 +92,8 @@ public class JsonDataGenerator : IIncrementalGenerator
             Location.Create(ctx.TargetNode.SyntaxTree, location),
             valuePath,
             globs,
-            new CacheableList<ReplacementRule>(replacements)
-        );
-    }
-
-    private DataInjectProperties ExtractDataInjectProperties(GeneratorAttributeSyntaxContext ctx, CancellationToken ct)
-    {
-        IParameterSymbol param = (IParameterSymbol)ctx.TargetSymbol;
-        IMethodSymbol method = (IMethodSymbol)param.ContainingSymbol;
-        INamedTypeSymbol containingType = (INamedTypeSymbol)method.ContainingSymbol;
-
-        TextSpan location = ((ParameterSyntax)ctx.TargetNode).Identifier.Span;
-        bool isString = param.Type.SpecialType == SpecialType.System_String;
-        int index = 0;
-        ImmutableArray<(string, string)>.Builder builder = ImmutableArray.CreateBuilder<(string, string)>(method.Parameters.Length - 1);
-        for (int i = 0; i < method.Parameters.Length; i++)
-        {
-            IParameterSymbol current = method.Parameters[i];
-            if (current.Equals(param, SymbolEqualityComparer.Default))
-            {
-                index = i;
-            }
-            else
-            {
-                builder.Add((current.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat), current.Name));
-            }
-        }
-        return new DataInjectProperties(
-            isString,
-            containingType.Name,
-            method.Name,
-            method.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
-            Location.Create(ctx.TargetNode.SyntaxTree, location),
-            index,
-            new CacheableList<(string declaration, string name)>(builder.ToImmutable())
+            replacements,
+            injections
         );
     }
 
@@ -197,11 +151,12 @@ public class JsonDataGenerator : IIncrementalGenerator
             props.Accessiblity,
             props.TargetClass,
             props.Location,
+            props.Injections,
             new CacheableList<(string name, string value)>(builder.ToImmutableArray())
         );
     }
 
-    private void EmitSources(SourceProductionContext ctx, JsonGeneratorTarget target, ImmutableArray<DataInjectProperties> injections)
+    private void EmitSources(SourceProductionContext ctx, JsonGeneratorTarget target)
     {
         if (target.Members.Count == 0)
         {
@@ -209,11 +164,10 @@ public class JsonDataGenerator : IIncrementalGenerator
             return;
         }
 
-        List<DataInjectProperties> relevantInjections = [.. injections.Where(x => x.ContainingClass == target.TargetClass)];
         bool validInjections = true;
-        foreach (DataInjectProperties injection in relevantInjections)
+        foreach (DataInjectProperties injection in target.Injections)
         {
-            if (relevantInjections.Count > 1)
+            if (target.Injections.Count > 1)
             {
                 ctx.ReportDiagnostic(Diagnostic.Create(Diagnostics.MultipleDataInjectParameters, injection.Location, target.TargetClass));
                 validInjections = false;
@@ -233,9 +187,9 @@ public class JsonDataGenerator : IIncrementalGenerator
 
             """);
 
-        if (validInjections && relevantInjections.Count == 1)
+        if (validInjections && target.Injections.Count == 1)
         {
-            DataInjectProperties injection = relevantInjections[0];
+            DataInjectProperties injection = target.Injections[0];
             StringBuilder parameterDeclarationsBuilder = new();
             StringBuilder parameterCallsFormatBuilder = new();
 

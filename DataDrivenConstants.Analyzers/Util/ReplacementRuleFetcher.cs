@@ -15,14 +15,14 @@ internal static class ReplacementRuleFetcherExtensions
     /// <summary>
     /// Gets replacement rules off a class declaration
     /// </summary>
-    public static ImmutableArray<ReplacementRule> GetReplacements(this ISymbol classDeclaration, SemanticModel semanticModel)
+    public static CacheableList<ReplacementRule> GetReplacements(this ISymbol classDeclaration, SemanticModel semanticModel)
     {
         INamedTypeSymbol? attrType = semanticModel.Compilation.GetTypeByMetadataName(ReplacementRuleAttributeGenerator.AttributeFullName);
         if (attrType == null)
         {
-            return ImmutableArray<ReplacementRule>.Empty;
+            return CacheableList.Of<ReplacementRule>();
         }
-        return classDeclaration.GetAttributes()
+        return CacheableList.Of(classDeclaration.GetAttributes()
             .Where(a => a.AttributeClass?.Equals(attrType, SymbolEqualityComparer.Default) == true
                         && !a.ConstructorArguments[0].IsNull
                         && !a.ConstructorArguments[1].IsNull)
@@ -32,7 +32,7 @@ internal static class ReplacementRuleFetcherExtensions
                 string newStr = (string)a.ConstructorArguments[1].Value!;
                 bool regex = (int)a.ConstructorArguments[2].Value! == 1;
                 return new ReplacementRule(oldStr, newStr, regex);
-            }).ToImmutableArray();
+            }).ToImmutableArray());
     }
 
     public static string ApplyReplacements(this string s, IEnumerable<ReplacementRule> replacements)

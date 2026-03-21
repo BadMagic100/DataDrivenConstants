@@ -52,7 +52,7 @@ public static partial class MyConstants {}
 The query syntax used is a slight extension of [JSONPath](https://goessner.net/articles/JsonPath/) which supports
 a `~` operator at the end of a query to get the keys of the selected node. This can be used to get keys of an object;
 while `$.*` will give you all *values* of an object, `$.*~` will give the *keys* of the object.
-[This website](https://jsonpath.com/) can be used to test your JSONPath; the `~` operator is supported in the JSONPath Plus`
+[This website](https://jsonpath.com/) can be used to test your JSONPath; the `~` operator is supported in the JSONPath Plus
 parser (note that it also supports other features which are not supported here).
 
 ### JSONPath cookbook
