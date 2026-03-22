@@ -223,7 +223,7 @@ public class JsonDataGenerator : IIncrementalGenerator
 
             foreach (string value in target.ExtractedValues)
             {
-                string name = Renamer.GenerateName(value, target.ReplacementRules, target.NameStyle, "Get");
+                string name = Renamer.GenerateName(value, target.ReplacementRules, target.NameStyle, injection.Prefix);
                 SyntaxToken tok = SyntaxFactory.Literal(value);
                 string callArgs = string.Format(parameterCallsFormat, tok);
                 source.AppendLine($$"""

@@ -18,7 +18,10 @@ public class DataInjectAttributeGenerator : IIncrementalGenerator
         namespace DataDrivenConstants.Marker
         {
             [AttributeUsage(AttributeTargets.Parameter, Inherited = false, AllowMultiple = false)]
-            internal sealed class DataInjectAttribute : Attribute { }
+            internal sealed class DataInjectAttribute : Attribute 
+            {
+                public string Prefix { get; set; } = "Get";
+            }
         }
         """;
 

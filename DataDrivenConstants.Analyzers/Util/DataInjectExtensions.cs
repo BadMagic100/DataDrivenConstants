@@ -1,5 +1,6 @@
 ﻿using DataDrivenConstants.Generators;
 using Microsoft.CodeAnalysis;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
@@ -10,6 +11,7 @@ internal record DataInjectProperties(
     string MethodName,
     string ReturnType,
     Location Location,
+    string Prefix,
     int InjectedParameterIndex,
     CacheableList<(string type, string name)> CopiedParameters);
 
@@ -33,18 +35,29 @@ internal static class DataInjectExtensions
         {
             foreach (IParameterSymbol parameter in method.Parameters)
             {
-                if (parameter.GetAttributes().Any(attr => attr.AttributeClass?.Equals(attrType, SymbolEqualityComparer.Default) == true))
+                AttributeData? injectionData = parameter.GetAttributes().FirstOrDefault(attr => attr.AttributeClass?.Equals(attrType, SymbolEqualityComparer.Default) == true);
+                if (injectionData != null)
                 {
-                    builder.Add(ExtractDataInjectProperties(namedTypeSymbol, method, parameter));
+                    builder.Add(ExtractDataInjectProperties(namedTypeSymbol, method, parameter, injectionData));
                 }
             }
         }
         return CacheableList.Of(builder.ToImmutable());
     }
 
-    private static DataInjectProperties ExtractDataInjectProperties(INamedTypeSymbol containingType, IMethodSymbol method, IParameterSymbol param)
+    private static DataInjectProperties ExtractDataInjectProperties(INamedTypeSymbol containingType, IMethodSymbol method, IParameterSymbol param, AttributeData data)
     {
         bool isString = param.Type.SpecialType == SpecialType.System_String;
+        // populate default prefix as Get
+        string prefix = "Get";
+        foreach (KeyValuePair<string, TypedConstant> kvp in data.NamedArguments)
+        {
+            if (kvp.Key == "Prefix" && !kvp.Value.IsNull && kvp.Value.Kind == TypedConstantKind.Primitive)
+            {
+                prefix = (string)kvp.Value.Value!;
+                break;
+            }
+        }
         int index = 0;
         ImmutableArray<(string, string)>.Builder builder = ImmutableArray.CreateBuilder<(string, string)>(method.Parameters.Length - 1);
         for (int i = 0; i < method.Parameters.Length; i++)
@@ -64,6 +77,7 @@ internal static class DataInjectExtensions
             method.Name,
             method.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
             param.Locations[0],
+            prefix,
             index,
             new CacheableList<(string declaration, string name)>(builder.ToImmutable())
         );

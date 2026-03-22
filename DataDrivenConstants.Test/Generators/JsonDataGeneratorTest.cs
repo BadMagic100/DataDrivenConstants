@@ -658,6 +658,118 @@ public class JsonDataGeneratorTest
     }
 
     [Fact]
+    public async Task GeneratedSymbolNamesAreValidWithInjectionAndCustomPrefix()
+    {
+        string source = /*lang=c#-test*/ """
+            namespace Test;
+
+            [DataDrivenConstants.Marker.JsonData("$[*]", "**/list.json")]
+            public static partial class MakeMeSomeMagicConstants 
+            {
+                private static string MakePlural([DataDrivenConstants.Marker.DataInject(Prefix = "Foo")] string value)
+                {
+                    return value + "s";
+                }
+            }
+            """;
+
+        string gen = /*lang=c#-test*/ """
+            namespace Test
+            {
+                public static partial class MakeMeSomeMagicConstants
+                {
+                    public static string Foo_2Number() => MakePlural("2Number");
+                    public static string FooCliffs_01_right4() => MakePlural("Cliffs_01[right4]");
+                    public static string FooLever_Queen_s_Garden_Stag() => MakePlural("Lever-Queen's_Garden_Stag");
+                    public static string FooNailmasters_Oro_Mato() => MakePlural("Nailmasters_Oro_&_Mato");
+                    public static string FooThing_With_Backslashes() => MakePlural("Thing_\\With\\_Backslashes");
+                }
+            }
+
+            """;
+
+        await new GenTest
+        {
+            TestCode = source,
+            TestState =
+            {
+                AdditionalFiles =
+                {
+                    ("Resources/list.json", """
+                    [ 
+                        "Lever-Queen's_Garden_Stag", 
+                        "Nailmasters_Oro_&_Mato", 
+                        "Cliffs_01[right4]",
+                        "Thing_\\With\\_Backslashes",
+                        "2Number"
+                    ]
+                    """)
+                },
+                GeneratedSources =
+                {
+                    (typeof(JsonDataGenerator), "MakeMeSomeMagicConstants.g.cs", gen)
+                }
+            }
+        }.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task GeneratedSymbolNamesAreValidWithInjectionAndEmptyPrefix()
+    {
+        string source = /*lang=c#-test*/ """
+            namespace Test;
+
+            [DataDrivenConstants.Marker.JsonData("$[*]", "**/list.json")]
+            public static partial class MakeMeSomeMagicConstants 
+            {
+                private static string MakePlural([DataDrivenConstants.Marker.DataInject(Prefix = "")] string value)
+                {
+                    return value + "s";
+                }
+            }
+            """;
+
+        string gen = /*lang=c#-test*/ """
+            namespace Test
+            {
+                public static partial class MakeMeSomeMagicConstants
+                {
+                    public static string _2Number() => MakePlural("2Number");
+                    public static string Cliffs_01_right4() => MakePlural("Cliffs_01[right4]");
+                    public static string Lever_Queen_s_Garden_Stag() => MakePlural("Lever-Queen's_Garden_Stag");
+                    public static string Nailmasters_Oro_Mato() => MakePlural("Nailmasters_Oro_&_Mato");
+                    public static string Thing_With_Backslashes() => MakePlural("Thing_\\With\\_Backslashes");
+                }
+            }
+
+            """;
+
+        await new GenTest
+        {
+            TestCode = source,
+            TestState =
+            {
+                AdditionalFiles =
+                {
+                    ("Resources/list.json", """
+                    [ 
+                        "Lever-Queen's_Garden_Stag", 
+                        "Nailmasters_Oro_&_Mato", 
+                        "Cliffs_01[right4]",
+                        "Thing_\\With\\_Backslashes",
+                        "2Number"
+                    ]
+                    """)
+                },
+                GeneratedSources =
+                {
+                    (typeof(JsonDataGenerator), "MakeMeSomeMagicConstants.g.cs", gen)
+                }
+            }
+        }.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
     public async Task GeneratedSymbolNamesAreValidWithInjectionAndPascalCase()
     {
         string source = /*lang=c#-test*/ """
@@ -684,6 +796,63 @@ public class JsonDataGeneratorTest
                     public static string GetLeverQueenSGardenStag() => MakePlural("Lever-Queen's_Garden_Stag");
                     public static string GetNailmastersOroMato() => MakePlural("Nailmasters_Oro_&_Mato");
                     public static string GetThingWithBackslashes() => MakePlural("Thing_\\With\\_Backslashes");
+                }
+            }
+
+            """;
+
+        await new GenTest
+        {
+            TestCode = source,
+            TestState =
+            {
+                AdditionalFiles =
+                {
+                    ("Resources/list.json", """
+                    [ 
+                        "Lever-Queen's_Garden_Stag", 
+                        "Nailmasters_Oro_&_Mato", 
+                        "Cliffs_01[right4]",
+                        "Thing_\\With\\_Backslashes",
+                        "2Number"
+                    ]
+                    """)
+                },
+                GeneratedSources =
+                {
+                    (typeof(JsonDataGenerator), "MakeMeSomeMagicConstants.g.cs", gen)
+                }
+            }
+        }.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task GeneratedSymbolNamesAreValidWithInjectionAndPascalCaseAndEmptyPrefix()
+    {
+        string source = /*lang=c#-test*/ """
+            namespace Test;
+
+            [DataDrivenConstants.Marker.JsonData("$[*]", "**/list.json")]
+            [DataDrivenConstants.Marker.NameGenerationStyle(DataDrivenConstants.Marker.NameStyle.PascalCase)]
+            public static partial class MakeMeSomeMagicConstants 
+            {
+                private static string MakePlural([DataDrivenConstants.Marker.DataInject(Prefix = "")] string value)
+                {
+                    return value + "s";
+                }
+            }
+            """;
+
+        string gen = /*lang=c#-test*/ """
+            namespace Test
+            {
+                public static partial class MakeMeSomeMagicConstants
+                {
+                    public static string _2Number() => MakePlural("2Number");
+                    public static string Cliffs01Right4() => MakePlural("Cliffs_01[right4]");
+                    public static string LeverQueenSGardenStag() => MakePlural("Lever-Queen's_Garden_Stag");
+                    public static string NailmastersOroMato() => MakePlural("Nailmasters_Oro_&_Mato");
+                    public static string ThingWithBackslashes() => MakePlural("Thing_\\With\\_Backslashes");
                 }
             }
 

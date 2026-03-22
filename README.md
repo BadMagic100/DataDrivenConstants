@@ -39,7 +39,7 @@ before the source generator processes them.
 
 ## JSON
 
-JSON files can be accessed using the `DataDrivenConstants.Marker.JsonData` attribute, for example:
+JSON files can be accessed using the `DataDrivenConstants.Marker.JsonData` attribute, for example the following class:
 
 ```csharp
 using DataDrivenConstants.Marker;
@@ -47,6 +47,15 @@ using DataDrivenConstants.Marker;
 // gets the "name" property of all objects in the root list
 [JsonData("$[*].name", "**/listOfObjects.json")]
 public static partial class MyConstants {}
+```
+
+might generate this source:
+
+```csharp
+public static partial class MyConstants 
+{
+    public const string MyValue = "MyValue";
+}
 ```
 
 The query syntax used is a slight extension of [JSONPath](https://goessner.net/articles/JsonPath/) which supports
@@ -63,10 +72,48 @@ parser (note that it also supports other features which are not supported here).
 - `$[*].name` - get the value of the `name` property for all elements of the root array
 - `$.*[*]` - in a object where all values are lists, gets all elements of all the lists
 
-## Replacements
+## Generated Names
 
-In the general case, the generator will perform a mostly minimal set of replacements to make the selected value into a legal
-C# symbol (details [here](https://github.com/BadMagic100/DataDrivenConstants/blob/main/DataDrivenConstants.Analyzers/Util/Renamer.cs)).
-In some cases however, more sophisticated replacement rules may be needed. Custom replacements can be specified with the
-`DataDrivenConstants.Marker.ReplacementRule` attribute. Multiple rules can be applied to a class and they will be evaluated
-in order. Regex replacement is also supported.
+In the general case, the generator will perform a minimal set of replacements to make the selected value into a legal
+C# symbol. DataDrivenConstants supports a variety of customization options if the default naming is not desired.
+
+- **Replacement**: Custom replacements can be specified with the `DataDrivenConstants.Marker.ReplacementRule` attribute. 
+  Multiple rules can be applied to a class and they will be evaluated in order. Regex replacement is also supported.
+- **Case Conversion**: Names can be configured to generate in PascalCase, camelCase, snake_case, or UPPER_SNAKE_CASE
+  by using the `DataDrivenConstants.Marker.NameGenerationStyle` attribute.
+
+## Data Injection
+
+There are a variety of scenarios where the sole use of a constant is to inject it into a method or constructor call to
+retrieve an object of another type or perform work. To reduce boilerplate in this pattern, the
+`DataDrivenConstants.Marker.DataInject` attribute can be applied to a static method parameter, and the generated source
+will be modified to inject the discovered constants into a call to the method with that parameter. For a class like this:
+
+```csharp
+using DataDrivenConstants.Marker;
+
+// gets the "name" property of all objects in the root list
+[JsonData("$[*].name", "**/listOfObjects.json")]
+public static partial class MyConstants 
+{
+    private static string MakePlural([DataInject] string value)
+    {
+        return value + "s";
+    }
+}
+```
+
+the following source might be generated:
+
+```csharp
+public static partial class MyConstants 
+{
+    public static string GetMyValue() => MakePlural("MyValue");
+}
+```
+
+ If the method has
+multiple parameters, they will be retained on the generated methods and passed through to the underlying method.
+
+By default, the prefix `Get` is prepended to the generated name. This applies after replacements, but before case conversion.
+The default prefix can be changed by setting the `Prefix` named parameter of the `DataInject` attribute.
