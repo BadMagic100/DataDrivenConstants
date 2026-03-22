@@ -24,14 +24,17 @@ public class JsonDataGenerator : IIncrementalGenerator
         Location Location,
         CacheableList<JsonDataSpec> DataSpecs,
         CacheableList<ReplacementRule> ReplacementRules,
+        NameStyle NameStyle,
         CacheableList<DataInjectProperties> Injections);
     private record JsonGeneratorTarget(
         string TargetNamespace,
         string Accessibility,
         string TargetClass,
         Location Location,
+        CacheableList<ReplacementRule> ReplacementRules,
+        NameStyle NameStyle,
         CacheableList<DataInjectProperties> Injections,
-        CacheableList<(string name, string value)> Members);
+        CacheableList<string> ExtractedValues);
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
@@ -43,7 +46,7 @@ public class JsonDataGenerator : IIncrementalGenerator
 
         IncrementalValuesProvider<JsonGeneratorTarget> generatorTargets = jsonDataMarkers
             .Combine(context.AdditionalTextsProvider.Collect())
-            .Select(GatherMembers);
+            .Select(GatherValues);
 
         context.RegisterSourceOutput(generatorTargets, EmitSources);
     }
@@ -51,6 +54,7 @@ public class JsonDataGenerator : IIncrementalGenerator
     private JsonDataProperties ExtractJsonDataProperties(GeneratorAttributeSyntaxContext ctx, CancellationToken ct)
     {
         CacheableList<ReplacementRule> replacements = ctx.TargetSymbol.GetReplacements(ctx.SemanticModel);
+        NameStyle nameStyle = ctx.TargetSymbol.GetNameStyle(ctx.SemanticModel);
         CacheableList<DataInjectProperties> injections = ctx.TargetSymbol.GetInjections(ctx.SemanticModel);
 
         TextSpan location = ((ClassDeclarationSyntax)ctx.TargetNode).Identifier.Span;
@@ -92,14 +96,15 @@ public class JsonDataGenerator : IIncrementalGenerator
             Location.Create(ctx.TargetNode.SyntaxTree, location),
             CacheableList.Of(specsBuilder.ToImmutable()),
             replacements,
+            nameStyle,
             injections
         );
     }
 
-    private JsonGeneratorTarget GatherMembers((JsonDataProperties, ImmutableArray<AdditionalText>) pair, CancellationToken ct)
+    private JsonGeneratorTarget GatherValues((JsonDataProperties, ImmutableArray<AdditionalText>) pair, CancellationToken ct)
     {
         (JsonDataProperties props, ImmutableArray<AdditionalText> texts) = pair;
-        ImmutableArray<(string, string)>.Builder builder = ImmutableArray.CreateBuilder<(string, string)>();
+        ImmutableArray<string>.Builder builder = ImmutableArray.CreateBuilder<string>();
 
         foreach (JsonDataSpec spec in props.DataSpecs)
         {
@@ -132,7 +137,7 @@ public class JsonDataGenerator : IIncrementalGenerator
                                 .Select(t => t.Value<string>()!);
                         }
 
-                        builder.AddRange(values.Select(v => (Renamer.GetSafeName(v, props.ReplacementRules), v)));
+                        builder.AddRange(values);
                     }
                 }
             }
@@ -144,14 +149,16 @@ public class JsonDataGenerator : IIncrementalGenerator
             props.Accessiblity,
             props.TargetClass,
             props.Location,
+            props.ReplacementRules,
+            props.NameStyle,
             props.Injections,
-            new CacheableList<(string name, string value)>(builder.ToImmutableArray())
+            new CacheableList<string>(builder.ToImmutableArray())
         );
     }
 
     private void EmitSources(SourceProductionContext ctx, JsonGeneratorTarget target)
     {
-        if (target.Members.Count == 0)
+        if (target.ExtractedValues.Count == 0)
         {
             ctx.ReportDiagnostic(Diagnostic.Create(Diagnostics.NoMembersFound, target.Location, target.TargetClass));
             return;
@@ -214,19 +221,21 @@ public class JsonDataGenerator : IIncrementalGenerator
             string parameterDeclarations = parameterDeclarationsBuilder.ToString();
             string parameterCallsFormat = parameterCallsFormatBuilder.ToString();
 
-            foreach ((string name, string value) in target.Members)
+            foreach (string value in target.ExtractedValues)
             {
+                string name = Renamer.GenerateName(value, target.ReplacementRules, target.NameStyle, "Get");
                 SyntaxToken tok = SyntaxFactory.Literal(value);
                 string callArgs = string.Format(parameterCallsFormat, tok);
                 source.AppendLine($$"""
-                        public static {{injection.ReturnType}} Get{{name}}({{parameterDeclarations}}) => {{injection.MethodName}}({{callArgs}});
+                        public static {{injection.ReturnType}} {{name}}({{parameterDeclarations}}) => {{injection.MethodName}}({{callArgs}});
                 """);
             }
         }
         else
         {
-            foreach ((string name, string value) in target.Members)
+            foreach (string value in target.ExtractedValues)
             {
+                string name = Renamer.GenerateName(value, target.ReplacementRules, target.NameStyle);
                 SyntaxToken tok = SyntaxFactory.Literal(value);
                 source.AppendLine($$"""
                         public const string {{name}} = {{tok}};

@@ -21,6 +21,11 @@ internal static class MarkerAttributeInjector
             typeof(ReplacementRuleAttributeGenerator),
             ReplacementRuleAttributeGenerator.AttributeFileName,
             ReplacementRuleAttributeGenerator.AttributeSource
+        ),
+        (
+            typeof(NameGenerationStyleAttributeGenerator),
+            NameGenerationStyleAttributeGenerator.AttributeFileName,
+            NameGenerationStyleAttributeGenerator.AttributeSource
         )
     ];
 
